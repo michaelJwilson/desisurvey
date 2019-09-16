@@ -25,9 +25,12 @@ import desiutil.log
 import desisurvey.config
 import desisurvey.tiles
         
-from sklearn.gaussian_process import GaussianProcessRegressor as GPR
+from   sklearn.gaussian_process import GaussianProcessRegressor as GPR
 
 
+def schlegel_twi(sunalt):
+    return  1. + 0.033 * 10 ** (0.477 * (sunalt + 18.5))
+    
 def seeing_exposure_factor(seeing):
     """Scaling of exposure time with seeing, relative to nominal seeing.
 
@@ -107,7 +110,6 @@ def dust_exposure_factor(EBV):
     EBV0 = config.nominal_conditions.EBV()
     Ag = 3.303 * (EBV - EBV0)
     return np.power(10.0, (2.0 * Ag / 2.5))
-
 
 def airmass_exposure_factor(airmass):
     """Scaling of exposure time with airmass relative to nominal.
@@ -219,7 +221,6 @@ def moon_exposure_factor(moon_frac, moon_sep, moon_alt, airmass):
     X = np.array((1, np.exp(-V), 1/V, 1/V**2, 1/V**3))
     return _moonCoefficients.dot(X)
 
-
 def bright_exposure_factor(moon_frac, moon_alt, moon_sep, sun_alt, sun_sep, airmass):
     """ calculate exposure time correction factor based on airmass, moon, and sun 
     parameters. 
@@ -252,6 +253,7 @@ def bright_exposure_factor(moon_frac, moon_alt, moon_sep, sun_alt, sun_sep, airm
     moon_sep    = moon_sep.flatten() 
     sun_sep     = sun_sep.flatten()
     airmass     = airmass.flatten() 
+
     if (moon_frac < 0) or (moon_frac > 1):
         raise ValueError('Got invalid moon_frac outside [0,1].')
     if (moon_alt < -90) or (moon_alt > 90):
@@ -269,7 +271,7 @@ def bright_exposure_factor(moon_frac, moon_alt, moon_sep, sun_alt, sun_sep, airm
     if moon_alt < 0 and sun_alt < -20.:
         return np.ones(len(airmass))  
 
-    thetas = np.zeros((len(moon_sep), 6))
+    thetas      = np.zeros((len(moon_sep), 6))
     thetas[:,0] = airmass
     thetas[:,1] = moon_frac
     thetas[:,2] = moon_alt
@@ -280,12 +282,17 @@ def bright_exposure_factor(moon_frac, moon_alt, moon_sep, sun_alt, sun_sep, airm
     if sun_alt >= -20.: 
         # exposure factor during twilight 
         _expfactors = texp_factor_bright(thetas, condition='twilight') 
+
     else:  
         # exposure factor during non-twilight 
         _expfactors = texp_factor_bright(thetas[:,:4], condition='not_twilight')
-    expfactors = np.clip(_expfactors, 1., None) 
-    return expfactors
 
+    ##  Minimum of Schlegel twilight factor;  Asymptotes to dark sky for sunalt << -15.
+    _min            = schlegel_twi(sun_alt)
+
+    expfactors      = np.clip(_expfactors, _min, None) 
+    
+    return expfactors
 
 def texp_factor_bright(thetas, condition=None): 
     ''' exposure time correction factor for bright sky during non-twilight
@@ -322,7 +329,6 @@ def texp_factor_bright(thetas, condition=None):
 
     texp_factor = gp.predict(np.atleast_2d(thetas))
     return texp_factor 
-
 
 def krisciunas_schaefer_free(obs_zenith, moon_zenith, separation_angle, moon_phase,
                         vband_extinction, C_R, C_M0, C_M1):
@@ -397,7 +403,6 @@ def krisciunas_schaefer_free(obs_zenith, moon_zenith, separation_angle, moon_pha
     return ((20.7233 - np.log(B_moon / 34.08)) / 0.92104 *
             u.mag / (u.arcsec ** 2))
 
-
 def exposure_time(program, seeing, transparency, airmass, EBV,
                   moon_frac, moon_sep, moon_alt):
     """Calculate the total exposure time for specified observing conditions.
@@ -454,7 +459,6 @@ def exposure_time(program, seeing, transparency, airmass, EBV,
 
     return actual_time
 
-
 class ExposureTimeCalculator(object):
     """Online Exposure Time Calculator.
 
@@ -493,14 +497,16 @@ class ExposureTimeCalculator(object):
         self.TEXP_TOTAL = {}
         for program in desisurvey.tiles.Tiles.PROGRAMS:
             self.TEXP_TOTAL[program] = getattr(config.nominal_exposure_time, program)().to(u.day).value
+
         # Temporary hardcoded exposure factors for moon-up observing.
-        #self.TEXP_TOTAL['GRAY'] *= 1.1
-        #self.TEXP_TOTAL['BRIGHT'] *= 1.33
+        # self.TEXP_TOTAL['GRAY']   *= 1.1
+        # self.TEXP_TOTAL['BRIGHT'] *= 1.33
 
         # Initialize model of exposure time dependence on seeing.
-        self.seeing_coefs = np.array([12.95475751, -7.10892892, 1.21068726])
+        self.seeing_coefs  = np.array([12.95475751, -7.10892892, 1.21068726])
         self.seeing_coefs /= np.sqrt(self.weather_factor(1.1, 1.0))
         assert np.allclose(self.weather_factor(1.1, 1.0), 1.)
+
         # Initialize optional history tracking.
         self.save_history = save_history
         if save_history:
@@ -629,11 +635,12 @@ class ExposureTimeCalculator(object):
         self.snr2frac_target = snr2frac + (texp_remaining / nexp) / self.texp_total
         # Initialize signal and background rate factors.
         self.srate0 = self.weather_factor(seeing, transp)
-        self.brate0 = sky
+        self.brate0 = 1. / sky
         self.signal = 0.
         self.background = 0.
         self.last_snr2frac = 0.
         self.should_abort = False
+
         if self.save_history:
             self.history['mjd'].append(mjd_now)
             self.history['signal'].append(0.)
@@ -667,20 +674,27 @@ class ExposureTimeCalculator(object):
         dt = mjd_now - self.mjd_last
         self.mjd_last = mjd_now
         srate = self.weather_factor(seeing, transp)
-        brate = sky        
-        self.signal += dt * srate / self.srate0
+
+        brate = sky
+
+        self.signal      += dt * srate / self.srate0
         #self.background += dt * (srate + brate) / (self.srate0 + self.brate0)
-        self.background += dt * brate / self.brate0
-        self._snr2frac = self._snr2frac_start + self.signal ** 2 / self.background / self.texp_total            
+        self.background  += dt * brate / self.brate0
+
+        self._snr2frac    = self._snr2frac_start + self.signal ** 2 / self.background / self.texp_total            
+
         if self.save_history:
             self.history['mjd'].append(mjd_now)
             self.history['signal'].append(self.signal)
             self.history['background'].append(self.background)
             self.history['snr2frac'].append(self._snr2frac)
+
         need_more_snr = self._snr2frac < self.snr2frac_target
+
         # Give up on this tile if SNR progress has dropped significantly since we started.
         self.should_abort = (self._snr2frac - self.last_snr2frac) / dt < 0.25 / self.texp_total
         self.last_snr2frac = self._snr2frac
+
         return need_more_snr and not self.should_abort
 
     def stop(self, mjd_now):

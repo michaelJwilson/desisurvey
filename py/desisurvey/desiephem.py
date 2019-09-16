@@ -281,7 +281,7 @@ class Ephemerides(object):
         # Build a 1s grid covering the night.
         step_size_sec = 1
         step_size_day = step_size_sec / 86400.
-        dmjd_grid = desisurvey.ephem.get_grid(step_size=step_size_sec * u.s)
+        dmjd_grid = desisurvey.desiephem.get_grid(step_size=step_size_sec * u.s)
         # Loop over nights to calculate the program sequence.
         self._table['programs'][:] = -1
         self._table['changes'][:] = 0.
@@ -708,10 +708,12 @@ class Ephemerides(object):
         GRAY = desisurvey.config.Configuration().programs.GRAY
         max_prod = GRAY.max_moon_illumination_altitude_product().to(u.deg).value
         max_frac = GRAY.max_moon_illumination()
-        gray = dark_night & (moon_alt >= 0) & (
-            (moon_frac <= max_frac) &
-            (moon_frac * moon_alt <= max_prod))
-        dark = dark_night & (moon_alt < 0)
+        
+        dark   = dark_night & (moon_alt < 0)
+
+        # & (moon_frac <= 0.54 + 3. / (moon_alt + 10.))
+        gray   = dark_night & (moon_alt >= 0) & (moon_frac <= max_frac) & (moon_frac * moon_alt <= max_prod)
+
         bright = bright_night & ~(dark | gray)
 
         assert not np.any(dark & gray | dark & bright | gray & bright)

@@ -1,0 +1,5 @@
+##  --include-twilight
+##  surveyinit --output-path $CSCRATCH/feasiBGS/wilson  --config-file /global/homes/m/mjwilson/repos/chh/desisurvey/py/desisurvey/mjw-config.yaml --tiles-file /global/homes/m/mjwilson/repos/chh/desisurvey/py/desisurvey/bright-tiles.fits
+
+##  --perfectweather 0;  --rules /global/cscratch1/sd/mjwilson/svdc2019c2/survey/rules-onepercent.yaml --twilight
+surveysim --output-path $CSCRATCH/feasiBGS/wilson --config-file /global/homes/m/mjwilson/repos/chh/desisurvey/py/desisurvey/mjw-config.yaml --tiles-file /global/homes/m/mjwilson/repos/chh/desisurvey/py/desisurvey/bright-tiles.fits  --rules /global/homes/m/mjwilson/repos/chh/desisurvey/py/desisurvey/data/rules-depth.yaml

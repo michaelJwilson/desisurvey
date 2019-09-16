@@ -122,7 +122,7 @@ class Planner(object):
         if self.fiberassign_cadence not in ('daily', 'monthly'):
             raise ValueError('Invalid fiberassign_cadence: "{}".'.format(self.fiberassign_cadence))
         self.tiles = desisurvey.tiles.get_tiles()
-        self.ephem = desisurvey.ephem.get_ephem()
+        self.ephem = desisurvey.desiephem.get_ephem()
         if restore is not None:
             # Restore the plan for a survey in progress.
             fullname = config.get_path(restore)

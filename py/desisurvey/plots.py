@@ -12,7 +12,7 @@ import astropy.units as u
 
 import desiutil.plots
 
-import desisurvey.ephem
+import desisurvey.desiephem
 import desisurvey.config
 import desisurvey.utils
 

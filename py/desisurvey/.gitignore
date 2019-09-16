@@ -1,0 +1,8 @@
+*~
+*.pdf
+bright-tiles.fits
+brights.txt
+desi-tiles.fits
+skymodel/v1/dat
+skymodel/v2/dat
+visibility-y1/

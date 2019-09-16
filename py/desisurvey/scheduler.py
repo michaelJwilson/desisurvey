@@ -17,7 +17,7 @@ import desisurvey.config
 import desisurvey.utils
 import desisurvey.etc
 import desisurvey.tiles
-import desisurvey.ephem
+import desisurvey.desiephem
 
 
 class Scheduler(object):
@@ -102,7 +102,7 @@ class Scheduler(object):
         self.LST = 0.
         self.night = None
         # Load the ephemerides to use.
-        self.ephem = desisurvey.ephem.get_ephem()
+        self.ephem = desisurvey.desiephem.get_ephem()
         # Initialize tile availability and priority.
         # No tiles will be scheduled until these are updated using update_tiles().
         self.tile_available = np.zeros(self.tiles.ntiles, bool)
@@ -247,10 +247,10 @@ class Scheduler(object):
         poolDEC = self.tiles.tileDEC[self.in_night_pool]
         avoid_idx = []
         for body in self.avoid_bodies:
-            if body == 'moon':
+            if (body == 'moon') | (body == 'sun'):
                 continue
             # Get body (RA,DEC) at midnight.
-            bodyDEC, bodyRA = desisurvey.ephem.get_object_interpolator(
+            bodyDEC, bodyRA = desisurvey.desiephem.get_object_interpolator(
                 self.night_ephem, body, altaz=False)(midnight)
             too_close = desisurvey.utils.separation_matrix(
                 [bodyRA], [bodyDEC], poolRA, poolDEC, self.avoid_bodies[body])[0]
@@ -262,11 +262,11 @@ class Scheduler(object):
                 avoid_idx.extend(idx)
         self.in_night_pool[avoid_idx] = False
         # Initialize moon tracking during this night.
-        self.moon_DECRA = desisurvey.ephem.get_object_interpolator(self.night_ephem, 'moon', altaz=False)
-        self.moon_ALTAZ = desisurvey.ephem.get_object_interpolator(self.night_ephem, 'moon', altaz=True)
+        self.moon_DECRA = desisurvey.desiephem.get_object_interpolator(self.night_ephem, 'moon', altaz=False)
+        self.moon_ALTAZ = desisurvey.desiephem.get_object_interpolator(self.night_ephem, 'moon', altaz=True)
 
-        self.sun_DECRA = desisurvey.ephem.get_object_interpolator(self.night_ephem, 'sun', altaz=False) 
-        self.sun_ALTAZ = desisurvey.ephem.get_object_interpolator(self.night_ephem, 'sun', altaz=True) 
+        self.sun_DECRA = desisurvey.desiephem.get_object_interpolator(self.night_ephem, 'sun', altaz=False) 
+        self.sun_ALTAZ = desisurvey.desiephem.get_object_interpolator(self.night_ephem, 'sun', altaz=True) 
 
     def next_tile(self, mjd_now, ETC, seeing, transp, skylevel, HA_sigma=15., greediness=0.,
                   program=None):
@@ -368,13 +368,31 @@ class Scheduler(object):
             # No tiles left to observe after airmass cut.
             return None, None, None, None, None, program, mjd_program_end
 
-        # Calculate the moon (RA,DEC).
+        # Calculate the moon (RA, DEC).                                                                                                                                                                                               
         moonDEC, moonRA = self.moon_DECRA(mjd_now)
-        moonALT, moonAZ = self.moon_ALTAZ(mjd_now) 
-        # calculate the sun (RA, DEC)
-        sunDEC, sunRA = self.sun_DECRA(mjd_now)
-        sunALT, sunAZ = self.sun_ALTAZ(mjd_now) 
+        moonALT, moonAZ = self.moon_ALTAZ(mjd_now)
 
+	# calculate the sun (RA, DEC)                                                                                                                                                                                                 
+        sunDEC, sunRA   = self.sun_DECRA(mjd_now)
+        sunALT, sunAZ   = self.sun_ALTAZ(mjd_now)
+
+        # Is the sun up?                                                                                                                                                                                                       
+        if ((mjd_now > self.night_ephem['brightdusk']) and (mjd_now < self.night_ephem['dusk'])) | ((mjd_now > self.night_ephem['dawn']) and (mjd_now < self.night_ephem['brightdawn'])):
+            sun_is_up = True
+
+            # Identify tiles that are too close to the sun to observe now.
+            too_close = desisurvey.utils.separation_matrix(
+                [sunRA], [sunDEC],
+                self.tiles.tileRA[self.tile_sel], self.tiles.tileDEC[self.tile_sel],
+                self.avoid_bodies['sun'])[0]
+            idx = np.where(self.tile_sel)[0][too_close]
+            self.tile_sel[idx] = False
+            if not np.any(self.tile_sel):
+                # No tiles left to observe after sun avoidance veto.                                                                                                                                                                                 
+                return None, None, None, None, None, program, mjd_program_end
+        else:
+            sun_is_up = False
+        
         # Is the moon up?
         if mjd_now > self.night_ephem['moonrise'] and mjd_now < self.night_ephem['moonset']:
             moon_is_up = True
@@ -390,16 +408,20 @@ class Scheduler(object):
                 return None, None, None, None, None, program, mjd_program_end
         else:
             moon_is_up = False
+            
         moon_sep = desisurvey.utils.separation_matrix(
             [moonRA], [moonDEC],
             self.tiles.tileRA[self.tile_sel], self.tiles.tileDEC[self.tile_sel])
+
         sun_sep = desisurvey.utils.separation_matrix(
             [sunRA], [sunDEC],
             self.tiles.tileRA[self.tile_sel], self.tiles.tileDEC[self.tile_sel])
+
         # Estimate exposure factors for all available tiles.
         self.exposure_factor[:] = 1e8
         self.exposure_factor[self.tile_sel] = self.tiles.dust_factor[self.tile_sel]
         self.exposure_factor[self.tile_sel] *= desisurvey.etc.airmass_exposure_factor(self.airmass[self.tile_sel])
+
         _bright_exposure_factor = desisurvey.etc.bright_exposure_factor(
                 self.night_ephem['moon_illum_frac'], 
                 moonALT, 

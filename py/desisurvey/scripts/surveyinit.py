@@ -28,7 +28,7 @@ import desiutil.log
 import desimodel.weather
 
 import desisurvey.utils
-import desisurvey.ephem
+import desisurvey.desiephem
 import desisurvey.tiles
 import desisurvey.optimize
 
@@ -119,7 +119,7 @@ def calculate_initial_plan(args):
     log = desiutil.log.get_logger()
     config = desisurvey.config.Configuration()
     tiles = desisurvey.tiles.get_tiles()
-    ephem = desisurvey.ephem.get_ephem()
+    ephem = desisurvey.desiephem.get_ephem()
 
     # Initialize the output file to write.
     hdus = fits.HDUList()
@@ -127,8 +127,8 @@ def calculate_initial_plan(args):
 
     # Calculate average weather factors for each day covered by
     # the ephemerides.
-    first = desisurvey.ephem.START_DATE
-    last = desisurvey.ephem.STOP_DATE
+    first = desisurvey.desiephem.START_DATE
+    last = desisurvey.desiephem.STOP_DATE
     years = np.arange(2007, 2018)
     fractions = []
     for year in years:
@@ -246,7 +246,7 @@ def main(args):
         config.tiles_file.set_value(args.tiles_file)
 
     # Tabulate emphemerides if necessary.
-    ephem = desisurvey.ephem.get_ephem(use_cache=not args.recalc)
+    ephem = desisurvey.desiephem.get_ephem(use_cache=not args.recalc)
 
     # Calculate design hour angles if necessary.
     fullname = config.get_path(args.save)
