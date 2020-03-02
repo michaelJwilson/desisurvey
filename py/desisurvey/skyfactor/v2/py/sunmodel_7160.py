@@ -3,8 +3,11 @@ import  pylab              as      pl
 import  matplotlib.pyplot  as      plt
 
 from    astropy.table      import  Table
-from    sun.indices        import  index_model
 
+
+def index_model(airmass, params):
+  ##  [ 2.00688895 -0.01108773 -0.00291262]                                                                                                                                                
+  return  params[0] + params[1] * airmass + params[2] * (airmass - 1.5)**2.
 
 def Y0(airmass, params):
   ##  [6.9489374,  -3.96722344]                                                                                                                                                                                                       
@@ -70,13 +73,13 @@ if __name__ == '__main__':
 
     assert np.all(dat['EXPFAC'] >= 1.0)
  
-    ##                                                                                                                                                                                                                             
-    print(dat)
-
     analytic = []
 
     for x in dat:
       analytic.append(sunmodel(x['SUNSEP'], x['AIRMASS'], x['SUNALT']))
+
+    analytic        = np.array(analytic)
+    dat['ANALYTIC'] = analytic
 
     axarr[i].plot(_abs, _abs, 'k-', alpha=.2)
 
@@ -92,6 +95,10 @@ if __name__ == '__main__':
     axarr[i].set_xlim((1., 14.))
     axarr[i].set_ylim((1., 14.))
 
+    ##                                                                                                                                                                                                                                 
+    print(dat)
+  
   fig.colorbar(im, orientation='vertical', label=r'SUN ALT.')
 
   pl.show()
+  

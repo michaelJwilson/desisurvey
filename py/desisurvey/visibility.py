@@ -1,25 +1,25 @@
 import  copy
 import  ephem
-import  matplotlib                    as      mpl 
 import  desisurvey
-import  astropy.io.fits               as      fits
-import  pylab                         as      pl
-import  numpy                         as      np
-import  astropy.units                 as      u
-import  matplotlib.pyplot             as      plt
-import  matplotlib.cm                 as      cm
+import  matplotlib                 as      mpl 
+import  astropy.io.fits            as      fits
+import  pylab                      as      pl
+import  numpy                      as      np
+import  astropy.units              as      u
+import  matplotlib.pyplot          as      plt
+import  matplotlib.cm              as      cm
 
-from    astropy.table                 import  Table
+from    astropy.table              import  Table
 
-from    desisurvey.desiephem          import  Ephemerides
-from    desisurvey.utils              import  local_noon_on_date, get_date
-from    datetime                      import  datetime, date
-from    astropy.time                  import  Time
-from    astropy.coordinates           import  SkyCoord, EarthLocation, AltAz
-from    desitarget.geomask            import  circles
-from    desisurvey                    import  plan
-from    desisurvey.skymodel.moonmodel import  moonmodel
-from    desisurvey.skymodel.sunmodel  import  sunmodel
+from    desisurvey.desiephem       import  Ephemerides
+from    desisurvey.utils           import  local_noon_on_date, get_date
+from    datetime                   import  datetime, date
+from    astropy.time               import  Time
+from    astropy.coordinates        import  SkyCoord, EarthLocation, AltAz
+from    desitarget.geomask         import  circles
+from    desisurvey                 import  plan
+from    desisurvey.moonmodel_7160  import  moonmodel
+from    desisurvey.sunmodel_7160   import  sunmodel
 
 
 def whatprogram(mjd, programs, changes):
@@ -54,20 +54,20 @@ tiles.sort('CENTERID')
 ##
 cids             = np.unique(tiles['CENTERID'].quantity)
 
-##  Write.                                                                                                                                                                                                     
+##  Write.                                                                                                                                                                               
 np.savetxt('visibility-{}/cids.txt'.format(prefix), cids, fmt='%d')
 
 ##  design_hrangle = plan.load_design_hourangle()               
 
 ##  config derived constraints.                                                                                                                                                         
-config           = desisurvey.config.Configuration(file_name='/global/homes/m/mjwilson/repos/chh/desisurvey/py/desisurvey/mjw-config.yaml')
+config           = desisurvey.config.Configuration(file_name='/Users/MJWilson/Work/desi/repos/chh/desisurvey/py/desisurvey/mjw-config.yaml')
 full_moon_nights = config.full_moon_nights()
 
 ##  Config. defined.
 ##  first_day    = config.first_day().isoformat()
 ##  last_day     = config.last_day().isoformat()
 
-##  One-year rewrite.                                                                                                                                                                                                                 
+##  One-year rewrite.                                                                                                                                                                      
 first_day        = '2020-01-01'
 last_day         = '2021-01-01'  
 
@@ -90,6 +90,8 @@ elv              = config.location.elevation()
 print(lat, lon, elv)
 
 avoid_bodies     = {}
+
+##  Preserve order. 
 bodies           = list(config.avoid_bodies.keys)
 
 for body in bodies:
@@ -135,7 +137,7 @@ print('\n\nProgram hour breakdown.')
 
 for i, _hrs in enumerate(hrs.T):
   print('Night  {0:4}:    {1:.4f} Dark;    {2:.4f}  Gray;    {3:.4f}  Bright.'.format(i, _hrs[0], _hrs[1], _hrs[2]))
-  
+'''  
 ##  Choose same times as those solved for in ephem, but more finely sample than 1/hr due to twilight changes.   
 N                = 96 * 3
 dt               = 24. / N
@@ -331,3 +333,4 @@ isbright = np.array(isbright)
 np.savetxt('brights.txt', brights, fmt='%.4lf')
 
 print('\n\nDone.\n\n')
+'''
