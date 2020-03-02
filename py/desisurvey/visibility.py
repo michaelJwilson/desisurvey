@@ -137,7 +137,7 @@ print('\n\nProgram hour breakdown.')
 
 for i, _hrs in enumerate(hrs.T):
   print('Night  {0:4}:    {1:.4f} Dark;    {2:.4f}  Gray;    {3:.4f}  Bright.'.format(i, _hrs[0], _hrs[1], _hrs[2]))
-'''  
+ 
 ##  Choose same times as those solved for in ephem, but more finely sample than 1/hr due to twilight changes.   
 N                = 96 * 3
 dt               = 24. / N
@@ -333,4 +333,4 @@ isbright = np.array(isbright)
 np.savetxt('brights.txt', brights, fmt='%.4lf')
 
 print('\n\nDone.\n\n')
-'''
+
